@@ -102,7 +102,6 @@ df_pivot.show()
 
 #display(final_df.limit(12))
 
-
 #visualizações, filtros e agrupamentos de dados
 
 #agrupamento e sumarização de valor, por ESTADO, PRODUTO, ANO e MES
@@ -117,7 +116,6 @@ display(df_agregado.limit(12))
 df_agregado = df.groupBy("product", "year", "month_no", "month").agg(sum("volume").alias("volume")).orderBy("year", "month_no", "product")
 display(df_agregado.limit(12))
 
-
 #filtro por Produto = DIESEL e agrupamento e sumarização de valor, por PRODUTO, ANO e MES
 df_diesel = df.filter(col("product").like("%DIESEL%"))
 df_agregado = df_diesel.groupBy("product", "year", "month_no", "month").agg(sum("volume").alias("accum_total")).orderBy("year", "month_no", "product")
@@ -128,3 +126,49 @@ display(df_agregado.limit(12))
 #window_spec = Window.partitionBy("MES").orderBy("ANO").rowsBetween(Window.unboundedPreceding, 0)
 #df_totalizado = df.withColumn("accum_total", sum("volume").over(window_spec))
 #display(df_totalizado.limit(12))
+
+
+# Script Select de dados em formato Parquet
+-- This is auto-generated code
+SELECT
+    TOP 100 *
+FROM
+    OPENROWSET(
+        BULK 'https://dominiodatalake1.dfs.core.windows.net/consume-zone/TI/XLS_CVS_teste/**',
+        FORMAT = 'PARQUET'
+    ) AS [result]
+
+
+# Script SQL para gerar tabela no Datawarehouse
+IF NOT EXISTS (SELECT * FROM sys.external_file_formats WHERE name = 'SynapseParquetFormat') 
+    CREATE EXTERNAL FILE FORMAT [SynapseParquetFormat] 
+    WITH ( FORMAT_TYPE = PARQUET)
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.external_data_sources WHERE name = 'consume-dominiodatalake1_dfs_core_windows_net') 
+    CREATE EXTERNAL DATA SOURCE [consume-zone_dominiodatalake1_dfs_core_windows_net] 
+    WITH (
+        LOCATION = 'abfss://consume-zone@dominiodatalake1.dfs.core.windows.net' 
+    )
+GO
+
+CREATE EXTERNAL TABLE dbo.XLS_CSV_teste (
+    [product] nvarchar(4000),
+    [year] int,
+    [unit] nvarchar(4000),
+    [uf] nvarchar(4000),
+    [month] nvarchar(4000),
+    [volume] real,
+    [created_at] datetime2(7),
+    [month_no] int
+    )
+    WITH (
+    LOCATION = 'TI/XLS_CVS_teste/**',
+    DATA_SOURCE = [consume-zone_dominiodatalake1_dfs_core_windows_net],
+    FILE_FORMAT = [SynapseParquetFormat]
+    )
+GO
+
+SELECT TOP 100 * FROM dbo.XLS_CSV_teste
+GO
+
