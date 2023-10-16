@@ -19,21 +19,21 @@ Nota: os valores totalizados por ano e mês não ficaram batidos com a planilha,
 
 from pyspark.sql.functions import split, col, row_number, expr, row_number, current_timestamp
 from pyspark.sql import SparkSession
-
 from pyspark.sql.window import Window
-
 from pyspark import HiveContext
 from pyspark.sql import Row, functions as F, types as T
 from pyspark.sql.window import Window
-
 from pyspark.sql.functions import col, lit, split, input_file_name, substring, regexp_replace, trim, when, add_months, to_date, concat, coalesce, months_between, max, sum, count, avg
-
 from datetime import datetime, timedelta
-
 from functools import reduce
 
 
 #Código Python
+
+#definição de parametros
+SystemPath = 'TI/XLS_CVS_teste'
+FileName = 'XLS_CVS_teste'
+DatePath = '2023/10/16/07/00'
 
 df = spark.read.load('abfss://landing-zone@romagnoledatalake1.dfs.core.windows.net/z_Lab/anp_prod_ok.csv', format='csv', header=True, sep=";")
 colunas_a_manter = ['product', 'year', 'unit', 'uf']
@@ -63,6 +63,10 @@ df = df_melted\
 df = df.filter(df['volume'].cast('string').rlike('^[0-9.]+$'))
 #display(df.limit(12)
 
+#gravar dados na Consume Zone
+df.write.mode('overwrite').save(CZ_path, format='parquet')
+
+#Agrupamento e pivotar dados
 df_pivot = df.groupBy("month", "month_no").pivot("year").agg(sum("volume")).orderBy("month_no")
 
 agg_cols = df_pivot.columns[1:]
@@ -97,3 +101,30 @@ df_pivot = df_pivot.withColumn('variacao acumulado 19-20',
 df_pivot.show()
 
 #display(final_df.limit(12))
+
+
+#visualizações, filtros e agrupamentos de dados
+
+#agrupamento e sumarização de valor, por ESTADO, PRODUTO, ANO e MES
+df_agregado = df.groupBy("uf", "product", "year", "month_no", "month").agg(sum("volume").alias("TOTAL")).orderBy("uf", "product", "year", "month_no")
+display(df_agregado.limit(12))
+
+#agrupamento e sumarização de valor, por ESTADO, ANO e MES
+df_agregado = df.groupBy("uf", "year", "month_no", "month").agg(sum("volume").alias("volume")).orderBy("uf", "year", "month_no")
+display(df_agregado.limit(12))
+
+#agrupamento e sumarização de valor, por PRODUTO, ANO e MES
+df_agregado = df.groupBy("product", "year", "month_no", "month").agg(sum("volume").alias("volume")).orderBy("year", "month_no", "product")
+display(df_agregado.limit(12))
+
+
+#filtro por Produto = DIESEL e agrupamento e sumarização de valor, por PRODUTO, ANO e MES
+df_diesel = df.filter(col("product").like("%DIESEL%"))
+df_agregado = df_diesel.groupBy("product", "year", "month_no", "month").agg(sum("volume").alias("accum_total")).orderBy("year", "month_no", "product")
+display(df_agregado.limit(12))
+
+
+# Use a função sum e over para calcular o total acumulado por mês e ano.
+#window_spec = Window.partitionBy("MES").orderBy("ANO").rowsBetween(Window.unboundedPreceding, 0)
+#df_totalizado = df.withColumn("accum_total", sum("volume").over(window_spec))
+#display(df_totalizado.limit(12))
