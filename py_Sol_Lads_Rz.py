@@ -8,7 +8,17 @@
 
 # # Importação de bibliotecas
 
-# In[139]:
+# # Variáveis parâmetros
+
+# In[1]:
+
+
+SystemPath = 'TI/XLS_CVS_teste'
+FileName = 'XLS_CVS_teste'
+DatePath = '2023/10/16/07/00'
+
+
+# In[2]:
 
 
 from pyspark.sql.functions import split, col, row_number, expr, row_number, current_timestamp
@@ -27,6 +37,15 @@ from datetime import datetime, timedelta
 from functools import reduce
 
 
+# # Áreas de Dados
+
+# In[3]:
+
+
+LZ_path = 'abfss://landing-zone@romagnoledatalake1.dfs.core.windows.net/'+ SystemPath +'/'+ DatePath +'/' + FileName +'.avro'
+CZ_path = 'abfss://consume-zone@romagnoledatalake1.dfs.core.windows.net/'+ SystemPath
+
+
 # # Leitura do arquivo CSV
 # # Estrutura original: 
 # #PRODUTO;ANO;REGIAO;ESTADO;Jan;Fev;Mar;Abr;Mai;Jun;Jul;Ago;Set;Out;Nov;Dez;TOTAL
@@ -34,7 +53,7 @@ from functools import reduce
 # #GASOLINA C (m3);2000;REGIÃO NORTE;ACRE;3358,346;40001,853;3065,758;3495,29;2946,93;3023,92;3206,93;3612,58;3264,46;3835,74;3676,571;3225,61;3289,718
 # 
 
-# In[173]:
+# In[4]:
 
 
 df = spark.read.load('abfss://landing-zone@romagnoledatalake1.dfs.core.windows.net/z_Lab/anp_prod_ok.csv', format='csv', header=True, sep=";")
@@ -64,6 +83,9 @@ df = df_melted\
 #filtro de registros apenas com valores válidos
 df = df.filter(df['volume'].cast('string').rlike('^[0-9.]+$'))
 #display(df.limit(12)
+
+#gravar dados na Consume Zone
+df.write.mode('overwrite').save(CZ_path, format='parquet')
 
 
 df_pivot = df.groupBy("month", "month_no").pivot("year").agg(sum("volume")).orderBy("month_no")
@@ -147,7 +169,7 @@ df = pd.read_excel('abfss://landing-zone@romagnoledatalake1.dfs.core.windows.net
 display(df.limit(10))
 
 
-# In[30]:
+# In[ ]:
 
 
 import pandas as pd
@@ -183,10 +205,4 @@ for r in range(1, ROWS + 1):
         ),
         Fore.RESET, sep=""
     )
-
-
-# In[ ]:
-
-
-
 
